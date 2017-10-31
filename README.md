@@ -3,6 +3,10 @@
 [![Code Climate](https://codeclimate.com/github/fabric8io/fluent-plugin-kubernetes_metadata_filter/badges/gpa.svg)](https://codeclimate.com/github/fabric8io/fluent-plugin-kubernetes_metadata_filter)
 [![Test Coverage](https://codeclimate.com/github/fabric8io/fluent-plugin-kubernetes_metadata_filter/badges/coverage.svg)](https://codeclimate.com/github/fabric8io/fluent-plugin-kubernetes_metadata_filter)
 
+This plugin uses the input source to determine basic metadata to associate with the record.  When `kubernetes_url` is configured, the plugin attempts to fetch additional metadata about the pod
+and its associated namespace.  The plugin will orphan a record if it unable to determine the pod or namespace metadata.  The namespace will be set to `orphaned_namespace_name` and the recored property
+`orphaned_namespace` is set to the eriginal namespace value.
+
 ## Installation
 
     gem install fluent-plugin-kubernetes_metadata_filter
@@ -29,8 +33,10 @@ This must used named capture groups for `container_name`, `pod_name` & `namespac
 * `de_dot_separator` - separator to use if `de_dot` is enabled (default: `_`)
 * `use_journal` - If false (default), messages are expected to be formatted and tagged as if read by the fluentd in\_tail plugin with wildcard filename.  If true, messages are expected to be formatted as if read from the systemd journal.  The `MESSAGE` field has the full message.  The `CONTAINER_NAME` field has the encoded k8s metadata (see below).  The `CONTAINER_ID_FULL` field has the full container uuid.  This requires docker to use the `--log-driver=journald` log driver.
 * `container_name_to_kubernetes_regexp` - The regular expression used to extract the k8s metadata encoded in the journal `CONTAINER_NAME` field (default: `'^(?<name_prefix>[^_]+)_(?<container_name>[^\._]+)(\.(?<container_hash>[^_]+))?_(?<pod_name>[^_]+)_(?<namespace>[^_]+)_[^_]+_[^_]+$'`
-  * This corresponds to the definition [in the source](https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockertools/docker.go#L317)
+* This corresponds to the definition [in the source](https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockertools/docker.go#L317)
 * `annotation_match` - Array of regular expressions matching annotation field names. Matched annotations are added to a log record.
+* `orphaned_namespace_name` - The namespace to associate with records where the namespace can not be determined (default: `.orphaned`)
+* `orphaned_namespace_id` - The namespace id to associate with records where the namespace can not be determined (default: `orphaned`)
 
 Reading from the JSON formatted log files with `in_tail` and wildcard filenames:
 ```
