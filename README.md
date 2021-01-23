@@ -7,8 +7,8 @@
 
 The Kubernetes metadata plugin filter enriches container log records with pod and namespace metadata.
 
-This plugin derives basic metadata about the container that emitted a given log record using the source of the log record. Records from journald provide metadata about the
-container environment as named fields. Records from JSON files encode metadata about the container in the file name.  The initial metadata derived from the source is used
+This plugin derives basic metadata about the container that emitted a given log record using the source of the log record. Records from JSON files encode metadata about the container 
+in the file name.  The initial metadata derived from the source is used
 to lookup additional metadata about the container's associated pod and namespace (e.g. UUIDs, labels, annotations) when the kubernetes_url is configured.  If the plugin cannot
 authoritatively determine the namespace of the container emitting a log record, it will use an 'orphan' namespace ID in the metadata. This behaviors supports multi-tenant systems
 that rely on the authenticity of the namespace for proper log isolation.
@@ -47,11 +47,7 @@ This must used named capture groups for `container_name`, `pod_name` & `namespac
 * `watch` - set up a watch on pods on the API server for updates to metadata (default: `true`)
 * `de_dot` - replace dots in labels and annotations with configured `de_dot_separator`, required for ElasticSearch 2.x compatibility (default: `true`)
 * `de_dot_separator` - separator to use if `de_dot` is enabled (default: `_`)
-* *DEPRECATED* `use_journal` - If false, messages are expected to be formatted and tagged as if read by the fluentd in\_tail plugin with wildcard filename.  If true, messages are expected to be formatted as if read from the systemd journal.  The `MESSAGE` field has the full message.  The `CONTAINER_NAME` field has the encoded k8s metadata (see below).  The `CONTAINER_ID_FULL` field has the full container uuid.  This requires docker to use the `--log-driver=journald` log driver.  If unset (the default), the plugin will use the `CONTAINER_NAME` and `CONTAINER_ID_FULL` fields
-if available, otherwise, will use the tag in the `tag_to_kubernetes_name_regexp` format.
-* `container_name_to_kubernetes_regexp` - The regular expression used to extract the k8s metadata encoded in the journal `CONTAINER_NAME` field default: See [code](https://github.com/fabric8io/fluent-plugin-kubernetes_metadata_filter/blob/master/lib/fluent/plugin/filter_kubernetes_metadata.rb#L68)
-  * This corresponds to the definition [in the source](https://github.com/kubernetes/kubernetes/blob/release-1.6/pkg/kubelet/dockertools/docker.go#L317)
-* `annotation_match` - Array of regular expressions matching annotation field names. Matched annotations are added to a log record.
+f* `annotation_match` - Array of regular expressions matching annotation field names. Matched annotations are added to a log record.
 * `allow_orphans` - Modify the namespace and namespace id to the values of `orphaned_namespace_name` and `orphaned_namespace_id`
 when true (default: `true`)
 * `orphaned_namespace_name` - The namespace to associate with records where the namespace can not be determined (default: `.orphaned`)
@@ -74,13 +70,11 @@ payload.  The following configuration options are removed:
 
 One way of preserving JSON logs can be through the [parser plugin](https://docs.fluentd.org/filter/parser)
 
-**NOTE** As of this release, the use of `use_journal` is **DEPRECATED**.  If this setting is not present, the plugin will
+The plugin will
 attempt to figure out the source of the metadata fields from the following:
 - If `lookup_from_k8s_field true` (the default) and the following fields are present in the record:
 `docker.container_id`, `kubernetes.namespace_name`, `kubernetes.pod_name`, `kubernetes.container_name`,
 then the plugin will use those values as the source to use to lookup the metadata
-- If `use_journal true`, or `use_journal` is unset, and the fields `CONTAINER_NAME` and `CONTAINER_ID_FULL` are present in the record,
-then the plugin will parse those values using `container_name_to_kubernetes_regexp` and use those as the source to lookup the metadata
 - Otherwise, if the tag matches `tag_to_kubernetes_name_regexp`, the plugin will parse the tag and use those values to
 lookup the metdata
 
@@ -123,50 +117,6 @@ The config block could look like this:
 <match **>
   @type stdout
 </match>
-```
-
-Reading from the systemd journal (requires the fluentd `fluent-plugin-systemd` and `systemd-journal` plugins, and requires docker to use the `--log-driver=journald` log driver):
-```
-<source>
-  @type systemd
-  path /run/log/journal
-  pos_file journal.pos
-  tag journal
-  read_from_head true
-</source>
-
-# probably want to use something like fluent-plugin-rewrite-tag-filter to
-# retag entries from k8s
-<match journal>
-  @type rewrite_tag_filter
-  rewriterule1 CONTAINER_NAME ^k8s_ kubernetes.journal.container
-  ...
-</match>
-
-<filter kubernetes.**>
-  @type kubernetes_metadata
-  use_journal true
-</filter>
-
-<match **>
-  @type stdout
-</match>
-```
-## Log content as JSON
-In former versions this plugin parsed the value of the key log as JSON. In the current version this feature was removed, to avoid duplicate features in the fluentd plugin ecosystem. It can parsed with the parser plugin like this:
-```
-<filter kubernetes.**>
-  @type parser
-  key_name log
-  <parse>
-    @type json
-    json_parser json
-  </parse>
-  replace_invalid_sequence true
-  reserve_data true # this preserves unparsable log lines
-  emit_invalid_record_to_error false # In case of unparsable log lines keep the error log clean
-  reserve_time # the time was already parsed in the source, we don't want to overwrite it with current time.
-</filter>
 ```
 
 ## Environment variables for Kubernetes
@@ -226,18 +176,6 @@ Then output becomes as belows
     }
   }
 }
-```
-
-If using journal input, from docker configured with `--log-driver=journald`, the input looks like the `journalctl -o export` format:
-```
-# The stream identification is encoded into the PRIORITY field as an
-# integer: 6, or github.com/coreos/go-systemd/journal.Info, marks stdout,
-# while 3, or github.com/coreos/go-systemd/journal.Err, marks stderr.
-PRIORITY=6
-CONTAINER_ID=b6cbb6e73c0a
-CONTAINER_ID_FULL=b6cbb6e73c0ad63ab820e4baa97cdc77cec729930e38a714826764ac0491341a
-CONTAINER_NAME=k8s_registry.a49f5318_docker-registry-1-hhoj0_default_ae3a9bdc-1f66-11e6-80a2-fa163e2fff3a_799e4035
-MESSAGE=172.17.0.1 - - [21/May/2016:16:52:05 +0000] "GET /healthz HTTP/1.1" 200 0 "" "Go-http-client/1.1"
 ```
 
 ## Contributing
